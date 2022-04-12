@@ -3,11 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using CitiesHarmony.API;
 using ColossalFramework;
 using ColossalFramework.UI;
 using UnityEngine;
 using UEObject = UnityEngine.Object;
 
+//TODO: need to trigger prime rate re-calc on tax rate change
 namespace RealisticLoans
 {
     public class LoanManager : MonoBehaviour, IDisposable
@@ -115,15 +117,17 @@ namespace RealisticLoans
 
             if (Input.GetKeyDown(KeyCode.U) && this.CtrlCmdDown && this.ShiftDown)
             {
-                SetLoanOffer(0, 50000, _primeRate + 1, 104);
-                SetLoanOffer(1, 100000, _primeRate + 2, 520);
-                SetLoanOffer(2, 200000, _primeRate + 3, 1040);
-                var loanField = _economyManager.GetType().GetField(
-                    "m_loans",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
-                );
-                var loans = (EconomyManager.Loan[]) loanField.GetValue(_economyManager);
-                loans[0].m_length = 200;
+                var loan1 = UIView.GetAView()?
+                    .FindUIComponent<UIPanel>("FullScreenContainer")?
+                    .Find<UIPanel>("EconomyPanel")?
+                    .Find<UIPanel>("LoanOffer1");
+                if (loan1 == null) return;
+                var desc = loan1.Find<UIPanel>("OfferInfoDesc");
+                var info = loan1.Find<UIPanel>("OfferInfo");
+                var desc6 = desc.Find<UILabel>("Info6");
+                desc6.isVisible = true;
+                desc6.text = "OVERRIDE";
+                logger.Log("override");
             }
 
             if (Input.GetKeyDown(KeyCode.L) && this.CtrlCmdDown && this.ShiftDown)
@@ -174,16 +178,16 @@ namespace RealisticLoans
             _economyManager = Singleton<EconomyManager>.instance;
             _unlockManager.EventMilestoneUnlocked += DisableReward;
             _started = true;
+            HarmonyHelper.EnsureHarmonyInstalled();
+            if (HarmonyHelper.IsHarmonyInstalled) Patcher.PatchAll();
             CheckPrimeRate();
-            SetLoanOffer(0, 100000, _primeRate + 1, 52);
-            SetLoanOffer(1, 200000, _primeRate + 2, 260);
-            SetLoanOffer(2, 400000, _primeRate + 3, 520);
             CheckLoans();
         }
 
         public void Dispose()
         {
             logger.Log($"disposing");
+            if (HarmonyHelper.IsHarmonyInstalled) Patcher.UnpatchAll();
             _unlockManager.EventMilestoneUnlocked -= DisableReward;
             Destroy(this);
             _isDisposed = true;
@@ -228,6 +232,9 @@ namespace RealisticLoans
             {
                 _primeRate = (int) primeRate;
                 logger.Log($"new prime rate: {_primeRate}%");
+                SetLoanOffer(0, 100000, _primeRate + 1, 52);
+                SetLoanOffer(1, 200000, _primeRate + 2, 260);
+                SetLoanOffer(2, 400000, _primeRate + 3, 520);
                 for (var i = 0; i < 3; i++)
                 {
                     if (_loans[i] == null) continue;

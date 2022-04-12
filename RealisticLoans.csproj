@@ -35,6 +35,14 @@
         <Reference Include="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
           <HintPath>..\..\Library\Application Support\Steam\steamapps\common\Cities_Skylines\Cities.app\Contents\Resources\Data\Managed\Assembly-CSharp.dll</HintPath>
         </Reference>
+        <Reference Include="CitiesHarmony.API, Version=2.1.0.0, Culture=neutral, PublicKeyToken=null">
+          <HintPath>packages\CitiesHarmony.API.2.1.0\lib\net35\CitiesHarmony.API.dll</HintPath>
+          <Private>True</Private>
+        </Reference>
+        <Reference Include="CitiesHarmony.Harmony, Version=2.0.4.0, Culture=neutral, PublicKeyToken=null">
+          <HintPath>packages\CitiesHarmony.Harmony.2.2.0\lib\net35\CitiesHarmony.Harmony.dll</HintPath>
+          <Private>True</Private>
+        </Reference>
         <Reference Include="ColossalManaged, Version=0.3.0.0, Culture=neutral, PublicKeyToken=null">
           <HintPath>..\..\Library\Application Support\Steam\steamapps\common\Cities_Skylines\Cities.app\Contents\Resources\Data\Managed\ColossalManaged.dll</HintPath>
         </Reference>
@@ -55,6 +63,7 @@
     <ItemGroup>
         <Compile Include="Economy.cs" />
         <Compile Include="Loan.cs" />
+        <Compile Include="Patcher.cs" />
         <Compile Include="RealisticLoans.cs" />
         <Compile Include="Loader.cs" />
         <Compile Include="Logger.cs" />
@@ -66,11 +75,15 @@
     <ItemGroup>
       <Content Include=".gitignore" />
     </ItemGroup>
+    <ItemGroup>
+      <None Include="packages.config" />
+    </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
     <PropertyGroup>
         <PostBuildEvent>mkdir -p  ~/Library/'Application Support'/'Colossal Order'/Cities_Skylines/Addons/Mods/RealisticLoans/;
-            rm -f ~/Library/'Application Support'/'Colossal Order'/Cities_Skylines/Addons/Mods/RealisticLoans/RealisticLoans.dll;
-            cp $(TargetPath)  ~/Library/'Application Support'/'Colossal Order'/Cities_Skylines/Addons/Mods/RealisticLoans/</PostBuildEvent>
+            rm -f ~/Library/'Application Support'/'Colossal Order'/Cities_Skylines/Addons/Mods/RealisticLoans/*.dll;
+            cp $(TargetPath)  ~/Library/'Application Support'/'Colossal Order'/Cities_Skylines/Addons/Mods/RealisticLoans/;
+            cp $(TargetDir)/CitiesHarmony.API.dll  ~/Library/'Application Support'/'Colossal Order'/Cities_Skylines/Addons/Mods/RealisticLoans/</PostBuildEvent>
     </PropertyGroup>
     <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
          Other similar extension points exist, see Microsoft.Common.targets.
