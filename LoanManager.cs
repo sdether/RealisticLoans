@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using ColossalFramework;
 using ColossalFramework.UI;
 using UnityEngine;
@@ -78,6 +79,9 @@ namespace RealisticLoans
         private EconomyManager.Loan[] _citiesLoans;
         private Loan[] _loans = new Loan[3];
         private int _indexLastServiced = -1;
+        private FieldInfo _cashAmountField;
+        private FieldInfo _cashDeltaField;
+        private long[] _loanExpenses;
 
         public LoanManager()
         {
@@ -171,9 +175,9 @@ namespace RealisticLoans
             _unlockManager.EventMilestoneUnlocked += DisableReward;
             _started = true;
             CheckPrimeRate();
-            SetLoanOffer(0, 10000, _primeRate + 1, 1);
-            SetLoanOffer(1, 100000, _primeRate + 2, 520);
-            SetLoanOffer(2, 200000, _primeRate + 3, 1040);
+            SetLoanOffer(0, 100000, _primeRate + 1, 52);
+            SetLoanOffer(1, 200000, _primeRate + 2, 260);
+            SetLoanOffer(2, 400000, _primeRate + 3, 520);
             CheckLoans();
         }
 
@@ -235,15 +239,28 @@ namespace RealisticLoans
 
         public void CheckLoans()
         {
-            if (!_started || _isDisposed ) return;
+            if (!_started || _isDisposed) return;
             if (_citiesLoans == null)
             {
-                var loanField = _economyManager.GetType().GetField(
-                    "m_loans",
+                _citiesLoans = (EconomyManager.Loan[]) _economyManager.GetType().GetField(
+                        "m_loans",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
+                    )
+                    ?.GetValue(_economyManager);
+                _loanExpenses = (long[]) _economyManager.GetType().GetField(
+                    "m_loanExpenses",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
+                )?.GetValue(_economyManager);
+                _cashAmountField = _economyManager.GetType().GetField(
+                    "m_cashAmount",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
                 );
-                _citiesLoans = (EconomyManager.Loan[]) loanField.GetValue(_economyManager);
+                _cashDeltaField = _economyManager.GetType().GetField(
+                    "m_cashDelta",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
+                );
             }
+
             CheckPrimeRate();
             for (var i = 0; i < 3; i++)
             {
@@ -274,7 +291,7 @@ namespace RealisticLoans
         {
             if (!_started || _isDisposed || index == _indexLastServiced) return;
             _indexLastServiced = index;
-            
+
             CheckLoans();
             var payments = 0;
             for (var i = 0; i < 3; i++)
@@ -282,20 +299,23 @@ namespace RealisticLoans
                 if (_loans[i] == null) continue;
                 var loan = _loans[i];
                 var payment = loan.MakePayment();
-                logger.Log($"paying {payment / 100.0:C2} for week index {index}: " +
+                logger.Log($"paying {payment / 100.0:C2} for week slot {index}: " +
                            $"amount: {loan.Amount / 100.0:C2}/{loan.AmountLeft / 100.0:C2}, " +
-                           $"term: {loan.WeeksLeft} weeks/ {loan.PaymentsLeft} payment left, " +
+                           $"{loan.PaymentsLeft} payments left, " +
                            $"weekly cost: {loan.WeeklyCost / 100.0:C2}, " +
-                           $"APR: {loan.AnnualPercentageRate:N}%");
+                           $"interest paid: {loan.InterestPaid/100.0:C2} @ " +
+                           $"{loan.AnnualPercentageRate:N}%");
                 payments += payment;
             }
 
             if (payments > 0)
             {
                 logger.Log($"making loan payment: {payments / 100.0:C2}");
-                //_economyManager.m_loanExpenses[16] += (long) payments;
-                //_economyManager.m_cashAmount -= (long) payments;
-                //_economyManager.m_cashDelta -= (long) payments;
+                _loanExpenses[16] += (long) payments;
+                var cashAmount = (long) _cashAmountField.GetValue(_economyManager);
+                _cashAmountField.SetValue(_economyManager, cashAmount - payments);
+                var cashDelta = (long) _cashDeltaField.GetValue(_economyManager);
+                _cashDeltaField.SetValue(_economyManager, cashDelta - payments);
             }
         }
 

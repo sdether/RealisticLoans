@@ -84,7 +84,7 @@ namespace RealisticLoans
         public int PaymentsLeft => _paymentsLeft;
         public int InterestPaid { get; private set; }
         public double AnnualPercentageRate { get; private set; }
-        public int WeeklyCost => _dailyCost * 7;
+        public int WeeklyCost => _dailyCost * 16;
 
         public void Persist(ref EconomyManager.Loan loan)
         {
