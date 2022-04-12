@@ -341,5 +341,11 @@ namespace RealisticLoans
                 }
             }
         }
+
+        public Loan GetLoan(int index)
+        {
+            CheckLoans();
+            return _loans[index];
+        }
     }
 }

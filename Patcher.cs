@@ -110,14 +110,15 @@ namespace RealisticLoans
                         EconomyManager.LoanInfo[] infos;
                         if (Singleton<EconomyManager>.instance.GetLoanInfo(index, out infos))
                         {
-                            continue;
                             UIComponent uiComponent1 = uiPanel.Find("OfferInfoDesc");
                             UIComponent uiComponent2 = uiPanel.Find("OfferInfo");
+                            uiComponent1.Find<UILabel>("Info6").isVisible = true;
+                            uiComponent2.Find<UILabel>("Info6").isVisible = true;
                             if (!flag)
                             {
-                                var weeklyCost = Loan.GetLoanCost(infos[0]) / 100f;
+                                var weeklyCost = Loan.GetLoanCost(infos[0]);
                                 var loanTotal = weeklyCost * infos[0].m_length;
-                                var interest = loanTotal - infos[0].m_amount / 100f;
+                                var interest = loanTotal - infos[0].m_amount;
                                 uiComponent1.Find<UILabel>("Info1").text = Locale.Get("LOAN_AMOUNT");
                                 uiComponent2.Find<UILabel>("Info1").text = infos[0].m_amount
                                     .ToString(Settings.moneyFormat, LocaleManager.cultureInfo);
@@ -134,60 +135,45 @@ namespace RealisticLoans
                                     Locale.Get("VALUE_PERCENTAGE"),
                                     infos[0].m_interest);
                                 uiComponent1.Find<UILabel>("Info4").text = Locale.Get("LOAN_WEEKLYCOST");
-                                uiComponent2.Find<UILabel>("Info4").text = StringUtils.SafeFormat(
-                                    weeklyCost.ToString(Settings.moneyFormat, LocaleManager.cultureInfo));
-                                continue;
+                                uiComponent2.Find<UILabel>("Info4").text =
+                                    weeklyCost.ToString(Settings.moneyFormat, LocaleManager.cultureInfo);
                                 uiComponent1.Find<UILabel>("Info5").text = Locale.Get("LOAN_TOTAL");
-                                uiComponent2.Find<UILabel>("Info5").text = StringUtils.SafeFormat(
-                                    loanTotal.ToString(Settings.moneyFormat, LocaleManager.cultureInfo));
-                                uiComponent1.Find<UILabel>("Info6").isVisible = true;
-                                uiComponent2.Find<UILabel>("Info6").isVisible = true;
+                                uiComponent2.Find<UILabel>("Info5").text =
+                                    loanTotal.ToString(Settings.moneyFormat, LocaleManager.cultureInfo);
                                 uiComponent1.Find<UILabel>("Info6").text = "Interest";
-                                uiComponent2.Find<UILabel>("Info6").text =StringUtils.SafeFormat(
-                                    interest.ToString(Settings.moneyFormat, LocaleManager.cultureInfo));
+                                uiComponent2.Find<UILabel>("Info6").text =
+                                    interest.ToString(Settings.moneyFormat, LocaleManager.cultureInfo);
                             }
                             else
                             {
-                                continue;
-                                float num1 = 0;
-                                float num2 = 0;
-                                float num3 = loan.m_interestRate / 100;
-                                float num4 = loan.m_amountLeft / 100f;
-                                int num5 = Mathf.CeilToInt(loan.m_amountLeft / (float) loan.m_amountTaken *
-                                                           loan.m_length);
-                                uiComponent1.Find<UILabel>("Info1").text =
-                                    Locale.Get("LOAN_PAYMENTLEFT");
-                                uiComponent2.Find<UILabel>("Info1").text = num4.ToString(Settings.moneyFormat,
+                                var loan2 = LoanManager.Instance.GetLoan(index);
+                                var amountLeft = loan2.AmountLeft / 100f;
+                                var loanTotal = (loan2.WeeklyCost / 100f) * loan2.Weeks;
+                                var weeklyCost = loan2.WeeklyCost / 100f;
+                                var interestPaid = loan2.InterestPaid / 100f;
+                                uiComponent1.Find<UILabel>("Info1").text = Locale.Get("LOAN_PAYMENTLEFT");
+                                uiComponent2.Find<UILabel>("Info1").text = amountLeft.ToString(Settings.moneyFormat,
                                     LocaleManager.cultureInfo);
-                                uiComponent1.Find<UILabel>("Info2").text =
-                                    Locale.Get("LOAN_PAYMENTPLAN");
+                                uiComponent1.Find<UILabel>("Info2").text = Locale.Get("LOAN_PAYMENTTIMELEFT");
                                 uiComponent2.Find<UILabel>("Info2").text = StringUtils.SafeFormat(
                                     Locale.Get("LOAN_PAYMENTFORMAT"),
-                                    loan.m_length,
-                                    loan.m_length != 1
+                                    loan2.WeeksLeft,
+                                    loan2.WeeksLeft != 1
                                         ? Locale.Get("DATETIME_WEEKS")
                                         : (object) Locale.Get("DATETIME_WEEK"));
-                                uiComponent1.Find<UILabel>("Info3").text =
-                                    Locale.Get("LOAN_INTEREST");
+                                uiComponent1.Find<UILabel>("Info3").text = Locale.Get("LOAN_INTEREST");
                                 uiComponent2.Find<UILabel>("Info3").text = StringUtils.SafeFormat(
-                                    Locale.Get("VALUE_PERCENTAGE"), num3);
-                                uiComponent1.Find<UILabel>("Info4").text =
-                                    Locale.Get("LOAN_WEEKLYCOST");
-                                uiComponent2.Find<UILabel>("Info4").text = StringUtils.SafeFormat(
-                                    num2.ToString(Settings.moneyFormat, LocaleManager.cultureInfo));
-                                uiComponent1.Find<UILabel>("Info5").text =
-                                    Locale.Get("LOAN_PAYMENTTIMELEFT");
-                                uiComponent2.Find<UILabel>("Info5").text = StringUtils.SafeFormat(
-                                    Locale.Get("LOAN_PAYMENTFORMAT"), num5,
-                                    num5 != 1
-                                        ? Locale.Get("DATETIME_WEEKS")
-                                        : (object) Locale.Get("DATETIME_WEEK"));
-                                uiComponent1.Find<UILabel>("Info6").isVisible = true;
-                                uiComponent2.Find<UILabel>("Info6").isVisible = true;
+                                    Locale.Get("VALUE_PERCENTAGE"), loan2.AnnualPercentageRate);
+                                uiComponent1.Find<UILabel>("Info4").text = Locale.Get("LOAN_WEEKLYCOST");
+                                uiComponent2.Find<UILabel>("Info4").text =
+                                    weeklyCost.ToString(Settings.moneyFormat, LocaleManager.cultureInfo);
+                                uiComponent1.Find<UILabel>("Info5").text = "Interest Paid";
+                                uiComponent2.Find<UILabel>("Info5").text =
+                                    interestPaid.ToString(Settings.moneyFormat, LocaleManager.cultureInfo);
                                 uiComponent1.Find<UILabel>("Info6").text =
                                     Locale.Get("LOAN_TOTAL");
-                                uiComponent2.Find<UILabel>("Info6").text = StringUtils.SafeFormat(
-                                    num1.ToString(Settings.moneyFormat, LocaleManager.cultureInfo));
+                                uiComponent2.Find<UILabel>("Info6").text =
+                                    loanTotal.ToString(Settings.moneyFormat, LocaleManager.cultureInfo);
                             }
                         }
                     }
