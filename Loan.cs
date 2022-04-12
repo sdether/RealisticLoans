@@ -24,30 +24,37 @@ namespace RealisticLoans
         }
 
 
-        public Loan(EconomyManager.Loan loan)
+        public Loan(EconomyManager.Loan loan, int annualPercentageRate)
         {
             AmountLeft = loan.m_amountLeft;
             Amount = loan.m_amountTaken;
-            // We misappropriate the term length from the existing loan structure to store
-            // our days left on the loan, so that it gets serialized into the savegame
-            _daysLeft = loan.m_length;
-            AnnualPercentageRate = loan.m_interestRate / 100.0;
+            Weeks = loan.m_length;
             InterestPaid = loan.m_interestPaid;
-            SetDailyCost();
+
+            // We misappropriate the interest field to store payments left. It is stored as a negative value so
+            // that we can distinguish between a new loan and the re-initialization after loading.
+            if (loan.m_interestRate < 0)
+            {
+                _paymentsLeft = -1 * loan.m_interestRate;
+            }
+            else
+            {
+                // EconomyManager calculates income and expenses 16x per week and tracks the rolling
+                // values in a array of 17 ints with the last value always containing the latest before
+                // being moved into the week index slot
+                _paymentsLeft = loan.m_length * 16;
+            }
+
+            UpdateInterestRate(annualPercentageRate);
         }
 
-        private void SetDailyCost()
+        public int MakePayment()
         {
-            _dailyCost = GetLoanCost(AnnualPercentageRate, Amount, _daysLeft, 52 * 7);
-        }
-
-        public int MakeDailyPayment(ref EconomyManager.Loan loan)
-        {
-            var dailyPercentageRate = AnnualPercentageRate / 100.0 / (52 * 7);
-            var interest = (int) (AmountLeft * dailyPercentageRate);
-            _daysLeft -= 1;
+            var periodPercentageRate = AnnualPercentageRate / 100.0 / (52 * 16);
+            var interest = (int) (AmountLeft * periodPercentageRate);
+            _paymentsLeft -= 1;
             int principal;
-            if (_daysLeft < 0)
+            if (_paymentsLeft > 0)
             {
                 principal = Math.Min(_dailyCost - interest, AmountLeft);
             }
@@ -59,26 +66,36 @@ namespace RealisticLoans
             AmountLeft -= principal;
             InterestPaid += interest;
 
-            loan.m_length = _daysLeft;
-            loan.m_length = InterestPaid;
-            loan.m_interestRate = (int) AnnualPercentageRate * 100;
-            loan.m_amountLeft = AmountLeft;
             return interest + principal;
         }
 
         public void UpdateInterestRate(int annualPercentageRate)
         {
             AnnualPercentageRate = annualPercentageRate;
-            SetDailyCost();
+            _dailyCost = GetLoanCost(AnnualPercentageRate, AmountLeft, _paymentsLeft, 52 * 16);
         }
 
-        private int _daysLeft;
+        private int _paymentsLeft;
         private int _dailyCost;
-        public int Amount { get; private set; }
+        public readonly int Amount;
+        public readonly int Weeks;
         public int AmountLeft { get; private set; }
-        public int WeeksLeft => (int) Math.Ceiling(_daysLeft / 7.0);
+        public int WeeksLeft => (int) Math.Ceiling(_paymentsLeft / 16.0);
+        public int PaymentsLeft => _paymentsLeft;
         public int InterestPaid { get; private set; }
         public double AnnualPercentageRate { get; private set; }
         public int WeeklyCost => _dailyCost * 7;
+
+        public void Persist(ref EconomyManager.Loan loan)
+        {
+            loan.m_interestPaid = InterestPaid;
+            loan.m_interestRate = -_paymentsLeft;
+            loan.m_amountLeft = AmountLeft;
+            if (AmountLeft <= 0)
+            {
+                loan.m_length = 0;
+                loan.m_amountTaken = 0;
+            }
+        }
     }
 }

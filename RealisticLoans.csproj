@@ -61,7 +61,6 @@
         <Compile Include="LoanManager.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="TaxClass.cs" />
-        <Compile Include="Threading.cs" />
         <Compile Include="Utils.cs" />
     </ItemGroup>
     <ItemGroup>

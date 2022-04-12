@@ -77,6 +77,7 @@ namespace RealisticLoans
         int _primeRate = 0;
         private EconomyManager.Loan[] _citiesLoans;
         private Loan[] _loans = new Loan[3];
+        private int _indexLastServiced = -1;
 
         public LoanManager()
         {
@@ -170,9 +171,10 @@ namespace RealisticLoans
             _unlockManager.EventMilestoneUnlocked += DisableReward;
             _started = true;
             CheckPrimeRate();
-            SetLoanOffer(0, 50000, _primeRate + 1, 104);
+            SetLoanOffer(0, 10000, _primeRate + 1, 1);
             SetLoanOffer(1, 100000, _primeRate + 2, 520);
             SetLoanOffer(2, 200000, _primeRate + 3, 1040);
+            CheckLoans();
         }
 
         public void Dispose()
@@ -222,14 +224,18 @@ namespace RealisticLoans
             {
                 _primeRate = (int) primeRate;
                 logger.Log($"new prime rate: {_primeRate}%");
+                for (var i = 0; i < 3; i++)
+                {
+                    if (_loans[i] == null) continue;
+                    _loans[i].UpdateInterestRate(_primeRate);
+                }
             }
         }
 
-        public void UpdateLoans()
-        {
-            if (!_started || _isDisposed) return;
 
-            CheckPrimeRate();
+        public void CheckLoans()
+        {
+            if (!_started || _isDisposed ) return;
             if (_citiesLoans == null)
             {
                 var loanField = _economyManager.GetType().GetField(
@@ -238,15 +244,14 @@ namespace RealisticLoans
                 );
                 _citiesLoans = (EconomyManager.Loan[]) loanField.GetValue(_economyManager);
             }
-
-            var payments = 0;
+            CheckPrimeRate();
             for (var i = 0; i < 3; i++)
             {
                 if (_citiesLoans[i].m_length == 0)
                 {
                     if (_loans[i] != null)
                     {
-                        logger.Log($"Wiping out left over loan at index {i}");
+                        logger.Log($"Wiping out paid off loan at index {i}");
                         _loans[i] = null;
                     }
 
@@ -255,82 +260,57 @@ namespace RealisticLoans
 
                 if (_loans[i] == null)
                 {
-                    // A new loan was taken out, so we need to rewrite the loans m_length
-                    // as days and initialize our loan
-                    _citiesLoans[i].m_length = _citiesLoans[i].m_length * 7;
-                    var loan = _loans[i] = new Loan(_citiesLoans[i]);
-                    logger.Log($"Initialized new loan at index {i}: " +
+                    var loan = _loans[i] = new Loan(_citiesLoans[i], _primeRate + 1 + i);
+                    logger.Log($"Initialized loan at index {i}: " +
                                $"amount: {loan.Amount / 100.0:C2}/{loan.AmountLeft / 100.0:C2}, " +
-                               $"term: {loan.WeeksLeft} weeks, " +
+                               $"term: {loan.WeeksLeft} weeks/ {loan.PaymentsLeft} payment left, " +
                                $"weekly cost: {loan.WeeklyCost / 100.0:C2}, " +
-                               $"APR: {loan.AnnualPercentageRate:P}");
+                               $"APR: {loan.AnnualPercentageRate:N}%");
                 }
-                else
-                {
-                    payments += _loans[i].MakeDailyPayment(ref _citiesLoans[i]);
-                }
+            }
+        }
+
+        public void ServiceLoans(int index)
+        {
+            if (!_started || _isDisposed || index == _indexLastServiced) return;
+            _indexLastServiced = index;
+            
+            CheckLoans();
+            var payments = 0;
+            for (var i = 0; i < 3; i++)
+            {
+                if (_loans[i] == null) continue;
+                var loan = _loans[i];
+                var payment = loan.MakePayment();
+                logger.Log($"paying {payment / 100.0:C2} for week index {index}: " +
+                           $"amount: {loan.Amount / 100.0:C2}/{loan.AmountLeft / 100.0:C2}, " +
+                           $"term: {loan.WeeksLeft} weeks/ {loan.PaymentsLeft} payment left, " +
+                           $"weekly cost: {loan.WeeklyCost / 100.0:C2}, " +
+                           $"APR: {loan.AnnualPercentageRate:N}%");
+                payments += payment;
             }
 
             if (payments > 0)
             {
-                
+                logger.Log($"making loan payment: {payments / 100.0:C2}");
+                //_economyManager.m_loanExpenses[16] += (long) payments;
+                //_economyManager.m_cashAmount -= (long) payments;
+                //_economyManager.m_cashDelta -= (long) payments;
             }
         }
 
-        private void Stuff()
+        public void PersistLoans()
         {
-            var economyManager = Singleton<EconomyManager>.instance;
+            if (!_started || _isDisposed) return;
+            CheckLoans();
             for (var i = 0; i < 3; i++)
             {
-                var bankName = economyManager.GetBankName(i);
-                logger.Log($"{bankName}");
-                EconomyManager.LoanInfo[] loanInfo;
-                if (economyManager.GetLoanInfo(i, out loanInfo) && loanInfo.Length > 0)
+                if (_loans[i] == null) continue;
+                _loans[i].Persist(ref _citiesLoans[i]);
+                if (_loans[i].AmountLeft <= 0)
                 {
-                    logger.Log("loan offers");
-                    foreach (var info in loanInfo)
-                    {
-                        logger.Log($"amount: ₡{info.m_amount}, " +
-                                   $"interest: {info.m_interest}%, " +
-                                   $"length: {info.m_length} weeks");
-                    }
-                }
-
-                EconomyManager.Loan loan;
-                if (economyManager.GetLoan(i, out loan))
-                {
-                    logger.Log($"loan: amount: ₡{loan.m_amountLeft}/₡{loan.m_amountTaken}, " +
-                               $"interest: ₡{loan.m_interestPaid}@{loan.m_interestRate}%, " +
-                               $"length: {loan.m_length} weeks");
-                }
-            }
-
-            var loanField = economyManager.GetType().GetField(
-                "m_loans",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
-            );
-            logger.Log($"{loanField}");
-            EconomyManager.Loan[] loans = (EconomyManager.Loan[]) loanField.GetValue(economyManager);
-            for (var i = 0; i < 3; i++)
-            {
-                var bankName = economyManager.GetBankName(i);
-                logger.Log($"{bankName}");
-                EconomyManager.LoanInfo[] loanInfo;
-                if (economyManager.GetLoanInfo(i, out loanInfo) && loanInfo.Length > 0)
-                {
-                    var newPercentage = loanInfo[0].m_interest + 1;
-                    logger.Log($"increasing {bankName} offer percentage from {loanInfo[0].m_interest}% " +
-                               $"to {newPercentage}%");
-                    loanInfo[0].m_interest = newPercentage;
-                }
-
-                EconomyManager.Loan loan;
-                if (economyManager.GetLoan(i, out loan))
-                {
-                    var newPercentage = loan.m_interestRate + 100;
-                    logger.Log($"increasing {bankName} loan percentage from {loan.m_interestRate / 100.0}% " +
-                               $"to {newPercentage / 100.0}%");
-                    loans[i].m_interestRate = newPercentage;
+                    logger.Log($"wiping paid off loan {i}");
+                    _loans[i] = null;
                 }
             }
         }
